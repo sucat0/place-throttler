@@ -50,28 +50,28 @@ function contextMockFactory(
     getClass: () => ThrottlerStorageServiceMock as any,
     getHandler: () => handler,
     switchToRpc: () => ({
-      getContext: () => ({} as any),
-      getData: () => ({} as any),
+      getContext: () => ({}) as any,
+      getData: () => ({}) as any,
     }),
     getArgs: () => [] as any,
-    getArgByIndex: () => ({} as any),
+    getArgByIndex: () => ({}) as any,
     getType: () => type as any,
   };
   switch (type) {
     case 'ws':
-      executionPartial.switchToHttp = () => ({} as any);
+      executionPartial.switchToHttp = () => ({}) as any;
       executionPartial.switchToWs = () => mockFunc as any;
       break;
     case 'http':
-      executionPartial.switchToWs = () => ({} as any);
+      executionPartial.switchToWs = () => ({}) as any;
       executionPartial.switchToHttp = () => mockFunc as any;
       break;
     case 'graphql':
-      executionPartial.switchToWs = () => ({} as any);
+      executionPartial.switchToWs = () => ({}) as any;
       executionPartial.switchToHttp = () =>
         ({
-          getNext: () => ({} as any),
-        } as any);
+          getNext: () => ({}) as any,
+        }) as any;
       executionPartial.getArgByIndex = () => mockFunc as any;
       break;
   }

@@ -172,20 +172,59 @@ export class ThrottlerGuard implements CanActivate {
       });
     }
 
+    if (!('user' in req && 'id' in req.user)) {
+      res.header(`${this.headerPrefix}-Limit${getThrottlerSuffix(throttler.name)}`, limit);
+      // We're about to add a record so we need to take that into account here.
+      // Otherwise the header says we have a request left when there are none.
+      res.header(
+        `${this.headerPrefix}-Remaining${getThrottlerSuffix(throttler.name)}`,
+        Math.max(0, limit - totalHits),
+      );
+      res.header(`${this.headerPrefix}-Reset${getThrottlerSuffix(throttler.name)}`, timeToExpire);
+
+      return true;
+    }
+
+    const userTracker = await this.getUserTracker(req);
+    const userKey = generateKey(context, userTracker, throttler.name);
+    const { totalHits: userTotalHits, timeToExpire: userTimeToExpire } =
+      await this.storageService.increment(key, ttl);
+
+    if (userTotalHits > limit) {
+      res.header(`Retry-After${getThrottlerSuffix(throttler.name)}`, userTimeToExpire);
+      await this.throwThrottlingException(context, {
+        limit,
+        ttl,
+        key: userKey,
+        tracker: userTracker,
+        totalHits: userTotalHits,
+        timeToExpire: userTimeToExpire,
+      });
+    }
+
     res.header(`${this.headerPrefix}-Limit${getThrottlerSuffix(throttler.name)}`, limit);
     // We're about to add a record so we need to take that into account here.
     // Otherwise the header says we have a request left when there are none.
     res.header(
       `${this.headerPrefix}-Remaining${getThrottlerSuffix(throttler.name)}`,
       Math.max(0, limit - totalHits),
+      Math.max(0, limit - userTotalHits),
     );
-    res.header(`${this.headerPrefix}-Reset${getThrottlerSuffix(throttler.name)}`, timeToExpire);
+    res.header(
+      `${this.headerPrefix}-Reset${getThrottlerSuffix(throttler.name)}`,
+      timeToExpire,
+      userTimeToExpire,
+    );
 
     return true;
   }
 
   protected async getTracker(req: Record<string, any>): Promise<string> {
     return req.ip;
+  }
+
+  protected async getUserTracker(req: Record<string, any>): Promise<string> {
+    return req.user.id;
   }
 
   protected getRequestResponse(context: ExecutionContext): {
